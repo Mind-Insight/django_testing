@@ -6,11 +6,13 @@ from django.urls import reverse
 
 from news.forms import BAD_WORDS
 from news.models import Comment
+from .constants import LOGIN_URL
 
 
 @pytest.mark.django_db
 def test_anonymous_user_cant_send_comment(client, news_page, form_data):
-    login_url = reverse("users:login")
+    assert Comment.objects.count() == 0
+    login_url = LOGIN_URL
     url = reverse("news:detail", args=(news_page.pk,))
     response = client.post(url, data=form_data)
     expected_url = f"{login_url}?next={url}"
@@ -40,6 +42,7 @@ def test_comment_cant_contain_bad_words(author_client, news_page):
 
 
 def test_author_can_delete_his_comments(author_client, comment, news_page):
+    assert Comment.objects.count() != 0
     url = reverse("news:delete", args=(comment.pk,))
     news_url = reverse("news:detail", args=(news_page.pk,))
     response = author_client.delete(url)
@@ -57,12 +60,14 @@ def test_author_can_edit_his_comments(
     assertRedirects(response, news_url + "#comments")
     comment.refresh_from_db()
     assert comment.text == form_data["text"]
+    assert comment.news == form_data["news"]
+    assert comment.author == form_data["author"]
 
 
 @pytest.mark.django_db
-def test_auth_user_cant_edit_other_comments(reader_client, comment, form_data):
+def test_auth_user_cant_edit_other_comments(admin_client, comment, form_data):
     url = reverse("news:edit", args=(comment.pk,))
-    response = reader_client.post(url, data=form_data)
+    response = admin_client.post(url, data=form_data)
     assert response.status_code == HTTPStatus.NOT_FOUND
     comment.refresh_from_db
     assert comment.text == form_data["text"]
@@ -70,9 +75,9 @@ def test_auth_user_cant_edit_other_comments(reader_client, comment, form_data):
 
 @pytest.mark.django_db
 def test_auth_user_cant_delete_other_comments(
-    reader_client, comment, form_data
+    admin_client, comment, form_data
 ):
     url = reverse("news:delete", args=(comment.pk,))
-    response = reader_client.delete(url)
+    response = admin_client.delete(url)
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert Comment.objects.count() == 1

@@ -17,7 +17,8 @@ def author(django_user_model):
 
 
 @pytest.fixture
-def author_client(author, client):
+def author_client(author):
+    client = Client()
     client.force_login(author)
     return client
 
@@ -64,8 +65,5 @@ def form_data(news_page, author):
 
 
 @pytest.fixture
-def reader_client():
-    reader = User.objects.create(username="Читатель")
-    reader_client = Client()
-    reader_client.force_login(reader)
-    return reader_client
+def pk_for_args(comment):
+    return (comment.pk,)
